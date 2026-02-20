@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>SEW THE SOUND | Order Form</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700&family=Noto+Sans+JP:wght@400;500;700&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --base-bg: #fdfdfb;
+            --card-bg: #ffffff;
+            --text-main: #2c3e50;
+            --text-sub: #576574;
+            --border: #e8e8e1;
+            --accent-blue: #5d8aa8;
+            --accent-rose: #c06c84;
+            --accent-gold: #d4a373;
+            --font-main: 'Noto Sans JP', sans-serif;
+            --font-title: 'Montserrat', sans-serif;
+            --safe-area-bottom: env(safe-area-inset-bottom);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: var(--font-main);
+            background-color: var(--base-bg);
+            color: var(--text-main);
+            height: 100dvh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            /* Prevent scrolling if everything fits */
+        }
+
+        .container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 20px 20px 0 20px;
+            max-width: 500px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        header {
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        h1 {
+            font-family: var(--font-title);
+            font-size: 1.2rem;
+            letter-spacing: 0.1em;
+            color: var(--text-main);
+        }
+
+        .section {
+            margin-bottom: 20px;
+        }
+
+        .section-title {
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: var(--text-sub);
+            margin-bottom: 8px;
+            text-transform: uppercase;
+        }
+
+        /* Name Input */
+        .input-group input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 1rem;
+            font-family: var(--font-main);
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .input-group input:focus {
+            border-color: var(--accent-blue);
+        }
+
+        /* Tile Buttons */
+        .grid {
+            display: grid;
+            gap: 10px;
+        }
+
+        .grid-3 {
+            grid-template-columns: repeat(3, 1fr);
+        }
+
+        .grid-2 {
+            grid-template-columns: repeat(2, 1fr);
+        }
+
+        .tile {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 12px 8px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.1s ease;
+            min-height: 60px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .tile .label {
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+
+        .tile .price {
+            font-size: 0.75rem;
+            color: var(--text-sub);
+            margin-top: 4px;
+        }
+
+        .tile:active {
+            transform: scale(0.96);
+        }
+
+        .tile.active {
+            background-color: var(--text-main);
+            color: white;
+            border-color: var(--text-main);
+            border-width: 2px;
+        }
+
+        .tile.active .price {
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        /* Footer */
+        .footer {
+            background-color: var(--card-bg);
+            border-top: 1px solid var(--border);
+            padding: 20px 20px calc(20px + var(--safe-area-bottom));
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .total-display {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+        }
+
+        .total-label {
+            font-family: var(--font-title);
+            font-size: 1rem;
+            color: var(--text-sub);
+        }
+
+        .total-amount {
+            font-family: var(--font-title);
+            font-size: 2rem;
+            font-weight: 700;
+        }
+
+        .submit-btn {
+            width: 100%;
+            padding: 16px;
+            border: none;
+            border-radius: 8px;
+            background-color: var(--text-main);
+            color: white;
+            font-family: var(--font-title);
+            font-size: 1rem;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+
+        .submit-btn:disabled {
+            background-color: var(--border);
+            color: var(--text-sub);
+            cursor: not-allowed;
+        }
+
+        .submit-btn:not(:disabled):active {
+            opacity: 0.8;
+        }
+
+        /* Overlay Loading */
+        #loading-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.8);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+            font-family: var(--font-title);
+            font-weight: 700;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="loading-overlay">SENDING...</div>
+
+    <div class="container">
+        <header>
+            <h1>SEW THE SOUND</h1>
+        </header>
+
+        <main>
+            <div class="section">
+                <div class="section-title">01. Name</div>
+                <div class="input-group">
+                    <input type="text" id="user-name" placeholder="ユーザーネーム" autocomplete="off">
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="section-title">02. Plan</div>
+                <div class="grid grid-3" id="plan-grid">
+                    <div class="tile" data-name="Lite" data-price="2000">
+                        <span class="label">Lite</span>
+                        <span class="price">¥2,000</span>
+                    </div>
+                    <div class="tile" data-name="Standard" data-price="4000">
+                        <span class="label">Standard</span>
+                        <span class="price">¥4,000</span>
+                    </div>
+                    <div class="tile" data-name="Limited" data-price="2000">
+                        <span class="label">Limited</span>
+                        <span class="price">¥2,000</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="section-title">03. Item</div>
+                <div class="grid grid-2" id="item-grid">
+                    <div class="tile" data-name="持ち込み" data-price="0">
+                        <span class="label">持ち込み</span>
+                        <span class="price">¥0</span>
+                    </div>
+                    <div class="tile" data-name="ポーチ" data-price="500">
+                        <span class="label">ポーチ</span>
+                        <span class="price">¥500</span>
+                    </div>
+                    <div class="tile" data-name="トートバック" data-price="500">
+                        <span class="label">トートバック</span>
+                        <span class="price">¥500</span>
+                    </div>
+                    <div class="tile" data-name="キッズT" data-price="500">
+                        <span class="label">キッズT</span>
+                        <span class="price">¥500</span>
+                    </div>
+                    <div class="tile" data-name="Tシャツ" data-price="1500">
+                        <span class="label">Tシャツ</span>
+                        <span class="price">¥1,500</span>
+                    </div>
+                    <div class="tile" data-name="ロンT" data-price="2000">
+                        <span class="label">ロンT</span>
+                        <span class="price">¥2,000</span>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div class="footer">
+        <div class="total-display">
+            <span class="total-label">Subtotal</span>
+            <span class="total-amount" id="total-amount">¥0</span>
+        </div>
+        <button class="submit-btn" id="submit-btn" disabled>ORDER FINALIZE</button>
+    </div>
+
+    <script>
+        // --- Configuration ---
+        // TODO: Replace with your actual GAS Web App URL after deployment
+        const GAS_URL = "https://script.google.com/macros/s/AKfycbxTQa0DrIUlkk3eJaANcbUF62Td26Oi-yRYPRMOTJOf5cnzoHFmGr-E-_SApUH7HtvE/exec";
+
+        // --- State Management ---
+        const state = {
+            name: "",
+            plan: null, // { name: string, price: number }
+            item: null  // { name: string, price: number }
+        };
+
+        // --- DOM Elements ---
+        const nameInput = document.getElementById('user-name');
+        const planTiles = document.querySelectorAll('#plan-grid .tile');
+        const itemTiles = document.querySelectorAll('#item-grid .tile');
+        const totalDisplay = document.getElementById('total-amount');
+        const submitBtn = document.getElementById('submit-btn');
+        const loadingOverlay = document.getElementById('loading-overlay');
+
+        // --- Logic ---
+        function updateTotal() {
+            const planPrice = state.plan ? state.plan.price : 0;
+            const itemPrice = state.item ? state.item.price : 0;
+            const total = planPrice + itemPrice;
+            totalDisplay.textContent = `¥${total.toLocaleString()}`;
+
+            // Validation
+            const isValid = state.name.trim() !== "" && state.plan !== null && state.item !== null;
+            submitBtn.disabled = !isValid;
+        }
+
+        function resetForm() {
+            state.name = "";
+            state.plan = null;
+            state.item = null;
+
+            nameInput.value = "";
+            planTiles.forEach(t => t.classList.remove('active'));
+            itemTiles.forEach(t => t.classList.remove('active'));
+            updateTotal();
+        }
+
+        // --- Event Listeners ---
+        nameInput.addEventListener('input', (e) => {
+            state.name = e.target.value;
+            updateTotal();
+        });
+
+        // Hide keyboard on enter
+        nameInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                nameInput.blur();
+            }
+        });
+
+        planTiles.forEach(tile => {
+            tile.addEventListener('click', () => {
+                planTiles.forEach(t => t.classList.remove('active'));
+                tile.classList.add('active');
+                state.plan = {
+                    name: tile.dataset.name,
+                    price: parseInt(tile.dataset.price)
+                };
+                updateTotal();
+            });
+        });
+
+        itemTiles.forEach(tile => {
+            tile.addEventListener('click', () => {
+                itemTiles.forEach(t => t.classList.remove('active'));
+                tile.classList.add('active');
+                state.item = {
+                    name: tile.dataset.name,
+                    price: parseInt(tile.dataset.price)
+                };
+                updateTotal();
+            });
+        });
+
+        submitBtn.addEventListener('click', async () => {
+            if (submitBtn.disabled) return;
+
+            loadingOverlay.style.display = 'flex';
+            submitBtn.disabled = true;
+
+            const payload = {
+                name: state.name,
+                planName: state.plan.name,
+                planPrice: state.plan.price,
+                itemName: state.item.name,
+                itemPrice: state.item.price,
+                total: state.plan.price + state.item.price
+            };
+
+            try {
+                // If GAS_URL is still a placeholder, just simulate success
+                if (GAS_URL === "YOUR_GAS_URL_HERE") {
+                    console.log("GAS_URL is placeholder. Simulating request:", payload);
+                    await new Promise(resolve => setTimeout(resolve, 1500));
+                    alert('注文を受け付けました（プレビューモード）');
+                } else {
+                    const response = await fetch(GAS_URL, {
+                        method: 'POST',
+                        body: JSON.stringify(payload)
+                    });
+                    const result = await response.json();
+                    if (result.result === 'success') {
+                        alert('注文を受け付けました');
+                    } else {
+                        throw new Error(result.error || 'Unknown error');
+                    }
+                }
+                resetForm();
+            } catch (error) {
+                console.error("Submission error:", error);
+                alert('送信に失敗しました。電波状況を確認してください。\n' + error.message);
+                submitBtn.disabled = false;
+            } finally {
+                loadingOverlay.style.display = 'none';
+            }
+        });
+    </script>
+</body>
+
+</html>
