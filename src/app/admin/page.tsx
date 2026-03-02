@@ -2,8 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { THREAD_COLORS } from "@/constants/colors";
-
-const GAS_URL = "https://script.google.com/macros/s/AKfycbxTQa0DrIUlkk3eJaANcbUF62Td26Oi-yRYPRMOTJOf5cnzoHFmGr-E-_SApUH7HtvE/exec";
+import { GAS_URL } from "@/config/constants";
 
 interface Submission {
     timestamp: string;
