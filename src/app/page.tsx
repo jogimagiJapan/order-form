@@ -5,6 +5,7 @@ import { useOrderForm } from "@/hooks/useOrderForm";
 import Step1_IDSelection from "@/components/Step1_IDSelection";
 import Step2_DetailsSelection from "@/components/Step2_DetailsSelection";
 import Step3_Preview from "@/components/Step3_Preview";
+import { GAS_URL } from "@/constants/gas";
 
 export default function OrderPage() {
   const {
@@ -17,7 +18,6 @@ export default function OrderPage() {
     updateOrder,
     nextStep,
     prevStep,
-    GAS_URL
   } = useOrderForm();
 
   const [isSubmitting, setIsSubmitting] = useState(false);

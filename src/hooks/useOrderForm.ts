@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { GAS_URL } from "@/config/constants";
+import { GAS_URL } from "@/constants/gas";
 
 export type Plan = "Lite" | "Standard" | "Limited";
 
