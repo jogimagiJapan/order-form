@@ -1,1 +1,2 @@
-export const GAS_URL = "https://script.google.com/macros/s/AKfycbxUHDE545WyxKAtE-mXKnWrqAAQlP5XPZJ1izEJPKCBcOm6W_56oBVQyeYGNcM6J2GI/exec";
+/** Highly explicit GAS URL to bypass any stale overrides or caches */
+export const ACTIVE_GAS_URL = "https://script.google.com/macros/s/AKfycbwwqKocq-PCZLdZtjtsvtcfv6dc82ijrKdqiVCFKPZq8TBnKPhGuKloPO4TAUEHiA-F/exec";

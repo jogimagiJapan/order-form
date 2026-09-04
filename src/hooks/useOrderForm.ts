@@ -1,9 +1,15 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { GAS_URL } from "@/constants/gas";
+import { ACTIVE_GAS_URL } from "@/constants/gas";
+import { resolveShippingFee } from "@/utils/shipping";
 
-export type Plan = "Lite" | "Standard" | "Limited";
+export type Plan = "Lite" | "Limited" | "Std Wave" | "Std Circle";
+export type PlanOption = "GPS日時" | "なし";
+export type DeliveryMethod = "pickup" | "shipping";
+
+export const isStdPlan = (plan: Plan | null): boolean =>
+    plan === "Std Wave" || plan === "Std Circle";
 
 export interface MasterDataItem {
     name: string;
@@ -12,18 +18,40 @@ export interface MasterDataItem {
     associatedItems: string[];
 }
 
+export interface ShippingInfo {
+    zip: string;
+    address: string;
+    building: string;
+    name: string;
+    phone: string;
+    email: string;
+    isRemoteManual: boolean;
+}
+
 export interface OrderState {
     selectedId: string;
     plan: Plan | null;
+    option: PlanOption | "";
     item: string;
     itemColor: string;
     itemSize: string;
-    thread1: string;
-    thread2: string;
-    thread3: string;
+    threads: string[]; // Changed from thread1,2,3 to an array
     notes: string;
+    deliveryMethod: DeliveryMethod | "";
+    shipping: ShippingInfo;
+    shippingFee: number;
     totalPrice: number;
 }
+
+const EMPTY_SHIPPING: ShippingInfo = {
+    zip: "",
+    address: "",
+    building: "",
+    name: "",
+    phone: "",
+    email: "",
+    isRemoteManual: false,
+};
 
 export function useOrderForm() {
     const [step, setStep] = useState(1);
@@ -33,28 +61,31 @@ export function useOrderForm() {
         items: MasterDataItem[];
         colors: MasterDataItem[];
         sizes: MasterDataItem[];
-    }>({ items: [], colors: [], sizes: [] });
+        shipping: MasterDataItem[];
+    }>({ items: [], colors: [], sizes: [], shipping: [] });
 
     const [order, setOrder] = useState<OrderState>({
         selectedId: "",
         plan: null,
+        option: "",
         item: "",
         itemColor: "",
         itemSize: "",
-        thread1: "",
-        thread2: "",
-        thread3: "",
+        threads: [],
         notes: "",
+        deliveryMethod: "",
+        shipping: { ...EMPTY_SHIPPING },
+        shippingFee: 0,
         totalPrice: 0,
     });
 
     useEffect(() => {
         async function fetchData() {
             try {
-                const res = await fetch(GAS_URL);
+                const res = await fetch(ACTIVE_GAS_URL);
                 const data = await res.json();
                 setFiles(data.latestFiles);
-                setMasterData(data.masterData);
+                setMasterData({ shipping: [], ...data.masterData });
             } catch (err) {
                 console.error("Failed to fetch master data", err);
             } finally {
@@ -69,12 +100,35 @@ export function useOrderForm() {
             const next = { ...prev, ...updates };
             // Calculation logic
             let total = 0;
-            if (next.plan === "Lite") total = 2000;
-            else if (next.plan === "Standard") total = 4000;
-            else if (next.plan === "Limited") total = 2000;
+            if (next.plan === "Lite" || next.plan === "Limited") total = 2000;
+            else if (isStdPlan(next.plan)) total = 4000;
 
             const itemPrice = masterData.items.find(i => i.name === next.item)?.price || 0;
-            next.totalPrice = total + itemPrice;
+
+            next.shippingFee = next.deliveryMethod === "shipping"
+                ? resolveShippingFee(next.shipping.zip, next.shipping.isRemoteManual, masterData.shipping)
+                : 0;
+
+            next.totalPrice = total + itemPrice + next.shippingFee;
+
+            return next;
+        });
+    };
+
+    const updateShipping = (updates: Partial<ShippingInfo>) => {
+        setOrder((prev) => {
+            const shipping = { ...prev.shipping, ...updates };
+            const next = { ...prev, shipping };
+
+            next.shippingFee = next.deliveryMethod === "shipping"
+                ? resolveShippingFee(shipping.zip, shipping.isRemoteManual, masterData.shipping)
+                : 0;
+
+            let total = 0;
+            if (next.plan === "Lite" || next.plan === "Limited") total = 2000;
+            else if (isStdPlan(next.plan)) total = 4000;
+            const itemPrice = masterData.items.find(i => i.name === next.item)?.price || 0;
+            next.totalPrice = total + itemPrice + next.shippingFee;
 
             return next;
         });
@@ -91,6 +145,7 @@ export function useOrderForm() {
         masterData,
         order,
         updateOrder,
+        updateShipping,
         nextStep,
         prevStep
     };

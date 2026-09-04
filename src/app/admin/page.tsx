@@ -2,12 +2,26 @@
 
 import { useState, useEffect } from "react";
 import { THREAD_COLORS } from "@/constants/colors";
-import { GAS_URL } from "@/constants/gas";
+import { ACTIVE_GAS_URL } from "@/constants/gas";
+import { parseDisplayId } from "@/utils/id";
+
+interface DeliveryInfo {
+    zip: string;
+    address: string;
+    building: string;
+    name: string;
+    phone: string;
+    email: string;
+    shippingFee: number;
+    progress: string;
+    trackingNumber: string;
+}
 
 interface Submission {
     timestamp: string;
     selectedId: string;
     plan: string;
+    option: string;
     item: string;
     itemColor: string;
     itemSize: string;
@@ -17,126 +31,266 @@ interface Submission {
     notes: string;
     totalPrice: number;
     status: string;
+    deliveryMethod: string;
+    shippingFee: number;
+    delivery?: DeliveryInfo | null;
 }
 
 export default function AdminDashboard() {
     const [submissions, setSubmissions] = useState<Submission[]>([]);
     const [selectedIndex, setSelectedIndex] = useState(0);
     const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
+    const [completedIds, setCompletedIds] = useState<Record<string, boolean>>({});
 
     useEffect(() => {
-        async function fetchData() {
+        // Load completed status from localStorage
+        const saved = localStorage.getItem("sts_completed_orders");
+        if (saved) {
             try {
-                const res = await fetch(GAS_URL);
-                const data = await res.json();
-                setSubmissions(data.submissions || []);
-            } catch (err) {
-                console.error("Failed to fetch submissions", err);
-            } finally {
-                setLoading(false);
+                setCompletedIds(JSON.parse(saved));
+            } catch (e) {
+                console.error("Failed to parse completed orders", e);
             }
         }
         fetchData();
     }, []);
 
-    if (loading) return <div className="flex h-screen items-center justify-center font-bold text-sub">LOADING DASHBOARD...</div>;
+    async function fetchData() {
+        setRefreshing(true);
+        try {
+            const res = await fetch(ACTIVE_GAS_URL);
+            const data = await res.json();
+            setSubmissions(data.submissions || []);
+        } catch (err) {
+            console.error("Failed to fetch submissions", err);
+        } finally {
+            setLoading(false);
+            setRefreshing(false);
+        }
+    }
+
+    const toggleCompleted = (id: string) => {
+        setCompletedIds(prev => {
+            const next = { ...prev, [id]: !prev[id] };
+            localStorage.setItem("sts_completed_orders", JSON.stringify(next));
+            return next;
+        });
+    };
+
+    if (loading) return (
+        <div className="flex h-screen items-center justify-center font-bold text-slate-400 gap-4">
+            <div className="spinner" style={{ width: 24, height: 24 }}></div>
+            LOADING DASHBOARD...
+        </div>
+    );
 
     const current = submissions[selectedIndex];
 
     if (!current) {
         return (
             <div className="container py-20 text-center">
-                <h1 className="mb-4">ADMIN DASHBOARD</h1>
+                <h1 className="admin-dashboard-title mb-4">DASHBOARD</h1>
                 <p className="text-sub">No submissions found.</p>
             </div>
         );
     }
 
     const getThreadColor = (id: string) => THREAD_COLORS.find(c => c.id === id);
+    const isCompleted = completedIds[current.selectedId] || false;
+    const formattedTimestamp = new Date(current.timestamp).toLocaleString('ja-JP', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+    });
+    const displayId = parseDisplayId(current.selectedId);
+    const isShippingOrder = current.deliveryMethod === "配送";
+    const delivery = current.delivery;
 
     return (
-        <div className="container py-8 bg-[#f8f9fa] min-h-screen">
-            <header className="mb-8 flex justify-between items-center">
-                <h1 className="text-lg">ADMIN DASHBOARD</h1>
-                <button
-                    className="text-xs bg-white border px-3 py-1 rounded-full font-bold"
-                    onClick={() => window.location.reload()}
-                >
-                    REFRESH
-                </button>
-            </header>
+        <div className="bg-slate-50 min-h-screen pb-32">
+            <div className="container py-6">
+                <header className="mb-2 px-2">
+                    <h1 className="admin-dashboard-title">DASHBOARD</h1>
+                </header>
 
-            <main>
-                {/* Main Card */}
-                <section className="bg-white rounded-3xl p-8 shadow-sm border mb-8 animate-fade-in">
-                    <div className="flex justify-between items-start mb-6">
-                        <div>
-                            <span className="badge mb-2">{current.status}</span>
-                            <h2 className="text-3xl font-bold">{current.selectedId}</h2>
-                            <p className="text-xs text-sub">{new Date(current.timestamp).toLocaleString()}</p>
-                        </div>
-                        <div className="text-right">
-                            <p className="text-xs font-bold text-sub">TOTAL</p>
-                            <p className="text-2xl font-bold">¥{current.totalPrice.toLocaleString()}</p>
-                        </div>
-                    </div>
+                <main>
+                    {/* Main Instruction Sheet */}
+                    <section className={`instruction-sheet mb-8 animate-fade-in ${isCompleted ? 'is-completed' : ''}`}>
+                        <div className="admin-card-header mb-8">
+                            <div className="admin-header-row">
+                                <div className="admin-badge-group">
+                                    <span className={`admin-badge ${isCompleted ? 'is-done' : ''}`}>
+                                        {isCompleted ? 'COMPLETED' : 'NEW ORDER'}
+                                    </span>
+                                    {isShippingOrder && <span className="admin-badge is-shipping">配送</span>}
+                                </div>
+                                <p className="admin-timestamp">{formattedTimestamp}</p>
+                            </div>
 
-                    <div className="grid grid-2 gap-8 mb-8">
-                        <div>
-                            <p className="text-[10px] font-bold text-sub uppercase mb-1">Plan</p>
-                            <p className="font-bold">{current.plan}</p>
-                        </div>
-                        <div>
-                            <p className="text-[10px] font-bold text-sub uppercase mb-1">Item</p>
-                            <p className="font-bold">{current.item} / {current.itemColor} / {current.itemSize}</p>
-                        </div>
-                    </div>
+                            <div className="admin-display-id">
+                                <span className="id-time">{displayId.time}</span>
+                                {displayId.username && <span className="id-user">{displayId.username}</span>}
+                            </div>
 
-                    <div className="mb-8">
-                        <p className="text-[10px] font-bold text-sub uppercase mb-3">Threads</p>
-                        <div className="flex gap-6">
-                            {[current.thread1, current.thread2, current.thread3].map((tid, i) => {
-                                const color = getThreadColor(tid);
-                                if (!tid || (current.plan === 'Lite' && i > 0)) return null;
+                            <div className="admin-header-row admin-header-row-end">
+                                <button
+                                    type="button"
+                                    className={`admin-complete-btn ${isCompleted ? 'is-done' : ''}`}
+                                    onClick={() => toggleCompleted(current.selectedId)}
+                                >
+                                    {isCompleted ? '作業完了' : '作業中'}
+                                </button>
+                                <p className="admin-price">
+                                    ¥{current.totalPrice.toLocaleString()}
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* High-Density Grid */}
+                        <div className="grid gap-3 mb-8">
+                            <div className="admin-grid-2">
+                                <div className="admin-grid-val">
+                                    <p className="value">{current.plan}</p>
+                                    <p className="label-small">Plan</p>
+                                </div>
+                                <div className="admin-grid-val">
+                                    <p className="value">{current.option || "なし"}</p>
+                                    <p className="label-small">Option</p>
+                                </div>
+                            </div>
+                            <div className="admin-grid-2">
+                                <div className="admin-grid-val">
+                                    <p className="value">{current.item}</p>
+                                    <p className="label-small">Item</p>
+                                </div>
+                                <div className="admin-grid-val">
+                                    <p className="value">{current.itemColor}</p>
+                                    <p className="label-small">Color</p>
+                                </div>
+                            </div>
+                            <div className="admin-grid-2">
+                                <div className="admin-grid-val">
+                                    <p className="value">{current.itemSize}</p>
+                                    <p className="label-small">Size</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="mb-8">
+                            <div className="thread-preview-grid">
+                                {[current.thread1, current.thread2, current.thread3].map((tid, i) => {
+                                    const color = getThreadColor(tid);
+                                    if (!tid || (current.plan === 'Lite' && i > 0)) return null;
+                                    return (
+                                        <div key={i} className="thread-preview-item">
+                                            <span className="text-[11px] font-black leading-none mb-2 text-slate-900">{tid}</span>
+                                            <div
+                                                className="color-dot-large"
+                                                style={{ backgroundColor: color?.hex, width: 60, height: 60 }}
+                                            />
+                                            <span className="text-[9px] text-slate-400 font-bold uppercase mt-2">{color?.name}</span>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
+                        {isShippingOrder && (
+                            <div className="admin-delivery mb-8">
+                                <div className="admin-delivery-head">
+                                    <h3 className="admin-label">Shipping To</h3>
+                                    {delivery?.progress && (
+                                        <span className="admin-delivery-progress">{delivery.progress}</span>
+                                    )}
+                                </div>
+                                {delivery ? (
+                                    <div className="admin-delivery-body">
+                                        <p className="admin-delivery-name">{delivery.name} 様</p>
+                                        <p>〒{delivery.zip}</p>
+                                        <p>{delivery.address}</p>
+                                        {delivery.building && <p>{delivery.building}</p>}
+                                        <p>{delivery.phone}</p>
+                                        <p>{delivery.email}</p>
+                                        <div className="admin-delivery-meta">
+                                            <span>送料 ¥{(delivery.shippingFee || 0).toLocaleString()}</span>
+                                            <span>送り状 {delivery.trackingNumber || "未発行"}</span>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <p className="admin-delivery-empty">
+                                        配送先データが見つかりません（配送情報シートをご確認ください）
+                                    </p>
+                                )}
+                            </div>
+                        )}
+
+                        {current.notes && (
+                            <div className="p-5 bg-slate-50 border border-slate-100 rounded-2xl">
+                                <h3 className="admin-label mb-2">Remarks</h3>
+                                <p className="text-sm text-slate-600 leading-relaxed font-bold">
+                                    {current.notes}
+                                </p>
+                            </div>
+                        )}
+                    </section>
+
+                    {/* Quick Selection List */}
+                    <section>
+                        <h3 className="admin-label mb-4 ml-2">History</h3>
+                        <div className="history-list space-y-2">
+                            {submissions.map((sub, idx) => {
+                                const subCompleted = completedIds[sub.selectedId] || false;
+                                const subDisplayId = parseDisplayId(sub.selectedId);
                                 return (
-                                    <div key={i} className="flex flex-col items-center gap-1">
-                                        <div className="w-12 h-12 rounded-full border-2" style={{ backgroundColor: color?.hex }} />
-                                        <span className="text-xs font-bold">{tid}</span>
+                                    <div
+                                        key={idx}
+                                        className={`history-item transition-all ${selectedIndex === idx ? "border-slate-900 ring-2 ring-slate-900/5 bg-slate-50" : "hover:bg-slate-50/50"} ${subCompleted ? 'opacity-40 grayscale' : ''}`}
+                                        onClick={() => setSelectedIndex(idx)}
+                                    >
+                                        <div className="flex items-center gap-4">
+                                            <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-black text-slate-400">
+                                                {idx + 1}
+                                            </div>
+                                            <div className="history-display-id">
+                                                <span className="id-time">
+                                                    {subDisplayId.time}
+                                                    {sub.deliveryMethod === "配送" && (
+                                                        <span className="history-ship-mark">配送</span>
+                                                    )}
+                                                </span>
+                                                {subDisplayId.username && (
+                                                    <span className="id-user">{subDisplayId.username}</span>
+                                                )}
+                                            </div>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="text-[10px] font-black text-slate-900 uppercase">{sub.plan}</p>
+                                            <p className="text-xs font-bold text-slate-400">¥{sub.totalPrice.toLocaleString()}</p>
+                                        </div>
                                     </div>
                                 );
                             })}
                         </div>
-                    </div>
+                    </section>
+                </main>
+            </div>
 
-                    {current.notes && (
-                        <div className="bg-base-bg p-4 rounded-2xl">
-                            <p className="text-[10px] font-bold text-sub uppercase mb-1">Remarks</p>
-                            <p className="text-sm">{current.notes}</p>
-                        </div>
-                    )}
-                </section>
-
-                {/* Quick Selection */}
-                <h3 className="text-xs font-bold text-sub mb-4 tracking-widest uppercase">Quick Selection (Past 5)</h3>
-                <div className="grid gap-3">
-                    {submissions.map((sub, idx) => (
-                        <div
-                            key={idx}
-                            className={`p-4 rounded-2xl border bg-white flex justify-between items-center cursor-pointer transition-all ${selectedIndex === idx ? "border-primary ring-1 ring-primary" : "opacity-70"}`}
-                            onClick={() => setSelectedIndex(idx)}
-                        >
-                            <div>
-                                <p className="font-bold text-sm">{sub.selectedId}</p>
-                                <p className="text-[10px] text-sub">{new Date(sub.timestamp).toLocaleTimeString()}</p>
-                            </div>
-                            <div className="text-right">
-                                <p className="text-xs font-bold">{sub.plan}</p>
-                                <p className="text-[10px] text-sub">¥{sub.totalPrice.toLocaleString()}</p>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            </main>
+            {/* Floating Action Button with Loading Feedback */}
+            <button
+                className="admin-fab"
+                onClick={fetchData}
+                disabled={refreshing}
+                title="Refresh Data"
+            >
+                {refreshing ? (
+                    <div className="spinner" style={{ width: 24, height: 24, borderColor: 'rgba(255,255,255,0.2)', borderTopColor: 'white' }}></div>
+                ) : (
+                    <span className="text-2xl font-black">↺</span>
+                )}
+            </button>
         </div>
     );
 }

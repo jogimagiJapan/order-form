@@ -1,8 +1,8 @@
 "use client";
 
-import { Plan, MasterDataItem, OrderState } from "@/hooks/useOrderForm";
+import { Plan, PlanOption, MasterDataItem, OrderState, isStdPlan } from "@/hooks/useOrderForm";
 import ThreadSelector from "./ThreadSelector";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 export default function Step2_DetailsSelection({
     order,
@@ -13,10 +13,50 @@ export default function Step2_DetailsSelection({
     masterData: { items: MasterDataItem[]; colors: MasterDataItem[]; sizes: MasterDataItem[] };
     onUpdate: (updates: Partial<OrderState>) => void;
 }) {
+    const plansRef = useRef<HTMLElement>(null);
+    const optionRef = useRef<HTMLElement>(null);
+    const itemsRef = useRef<HTMLElement>(null);
+    const colorRef = useRef<HTMLElement>(null);
+    const sizeRef = useRef<HTMLElement>(null);
+    const threadsRef = useRef<HTMLElement>(null);
+    const remarksRef = useRef<HTMLElement>(null);
+
+    const scrollTo = (ref: React.RefObject<HTMLElement | null>) => {
+        setTimeout(() => {
+            ref.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+        }, 100);
+    };
+
+    // Auto-scroll logic
+    useEffect(() => {
+        if (order.plan && isStdPlan(order.plan) && !order.option) scrollTo(optionRef);
+        else if (order.plan && order.option && !order.item) scrollTo(itemsRef);
+    }, [order.plan, order.option, order.item]);
+
+    useEffect(() => {
+        if (order.item && !order.itemColor) scrollTo(colorRef);
+    }, [order.item, order.itemColor]);
+
+    useEffect(() => {
+        if (order.item && order.itemColor && !order.itemSize) scrollTo(sizeRef);
+    }, [order.item, order.itemColor, order.itemSize]);
+
+    useEffect(() => {
+        if (order.itemColor && order.itemSize && order.threads.every(t => !t)) scrollTo(threadsRef);
+    }, [order.itemColor, order.itemSize, order.threads]);
+
+    // Note: Not scrolling to remarks automatically as users might want to review threads
+
     const plans: { id: Plan; label: string; price: string }[] = [
         { id: "Lite", label: "Lite", price: "¥2,000" },
-        { id: "Standard", label: "Standard", price: "¥4,000" },
         { id: "Limited", label: "Limited", price: "¥2,000" },
+        { id: "Std Wave", label: "Std Wave", price: "¥4,000" },
+        { id: "Std Circle", label: "Std Circle", price: "¥4,000" },
+    ];
+
+    const options: { id: PlanOption; label: string; price: string }[] = [
+        { id: "GPS日時", label: "GPS日時", price: "+¥0" },
+        { id: "なし", label: "なし", price: "+¥0" },
     ];
 
     // Filter logic
@@ -56,42 +96,101 @@ export default function Step2_DetailsSelection({
         }
     }, [masterData, order.item, order.itemColor, order.itemSize, onUpdate]);
 
-    const handleThreadChange = (index: number, value: string) => {
-        const key = `thread${index + 1}` as keyof OrderState;
-        onUpdate({ [key]: value });
+    const handleThreadToggle = (id: string, index?: number) => {
+        const count = order.plan === "Lite" ? 1 : 3;
+        const newThreads = [...order.threads];
+
+        // Ensure array is of correct length
+        while (newThreads.length < count) newThreads.push("");
+
+        if (index !== undefined && index < count) {
+            newThreads[index] = id;
+            onUpdate({ threads: newThreads });
+        }
     };
 
     const threadCount = order.plan === "Lite" ? 1 : 3;
+    const stdSelected = isStdPlan(order.plan);
+
+    // Determine which section should be highlighted to guide the user
+    let activeSection = 0;
+    if (!order.plan) activeSection = 1;
+    else if (!order.option) activeSection = 2;
+    else if (!order.item) activeSection = 3;
+    else if (!order.itemColor) activeSection = 4;
+    else if (!order.itemSize) activeSection = 5;
+    else if (order.threads.some(t => !t)) activeSection = 6;
 
     return (
-        <div className="animate-fade-in pb-10">
-            <h2 className="mb-4 text-center">Step 02: Customize</h2>
+        <div className="animate-fade-in pb-20 px-1">
+            <header className="mb-10 text-center">
+                <h2 className="text-2xl mb-2 mt-6">02. Customize</h2>
+                <p className="text-sub">デザインと詳細を選択してください</p>
+            </header>
 
-            <section className="mb-8">
-                <h3 className="section-title mb-2 text-xs font-bold text-sub">02-1. SELECT PLAN</h3>
-                <div className="grid grid-3">
+            <section className={`mb-16 transition-all duration-500 ${activeSection === 1 ? 'focused-section' : ''}`} ref={plansRef}>
+                <h3 className="section-title">02-1. SELECT PLAN</h3>
+                <div className="grid grid-2">
                     {plans.map((p) => (
                         <div
                             key={p.id}
                             className={`tile ${order.plan === p.id ? "active" : ""}`}
-                            onClick={() => onUpdate({ plan: p.id })}
+                            onClick={() => {
+                                // Reset threads if plan changes
+                                const limit = p.id === "Lite" ? 1 : 3;
+                                let newThreads = order.threads.slice(0, limit);
+                                while (newThreads.length < limit) newThreads.push("");
+                                const nextIsStd = p.id === "Std Wave" || p.id === "Std Circle";
+                                onUpdate({
+                                    plan: p.id,
+                                    threads: newThreads,
+                                    // Std以外は「なし」を自動選択。Stdはユーザー選択を待つ
+                                    option: nextIsStd ? "" : "なし",
+                                });
+                            }}
                         >
-                            <span className="text-sm font-bold">{p.label}</span>
-                            <span className="text-[10px] opacity-70">{p.price}</span>
+                            <span className="text-xs font-bold tracking-widest">{p.label}</span>
+                            <span className="text-[10px] mt-1 opacity-60">{p.price}</span>
                         </div>
                     ))}
                 </div>
             </section>
 
-            <section className="mb-8">
-                <h3 className="section-title mb-2 text-xs font-bold text-sub">02-2. SELECT ITEM</h3>
+            <section className={`mb-16 transition-all duration-500 ${activeSection === 2 ? 'focused-section' : ''}`} ref={optionRef}>
+                <h3 className="section-title">02-2. OPTION</h3>
+                <div className="grid grid-2">
+                    {!order.plan ? (
+                        <div className="tile opacity-30 cursor-not-allowed border-none shadow-none">
+                            <span className="text-[10px] italic">Select plan first</span>
+                        </div>
+                    ) : options.map((o) => {
+                        const locked = !stdSelected;
+                        return (
+                            <div
+                                key={o.id}
+                                className={`tile ${order.option === o.id ? "active" : ""} ${locked ? "opacity-50 cursor-not-allowed" : ""}`}
+                                onClick={() => {
+                                    if (locked) return;
+                                    onUpdate({ option: o.id });
+                                }}
+                            >
+                                <span className="text-sm font-bold">{o.label}</span>
+                                <span className="text-[10px] mt-1 opacity-60">{o.price}</span>
+                                {locked && o.id === "なし" && <span className="badge">Auto-Selected</span>}
+                            </div>
+                        );
+                    })}
+                </div>
+            </section>
+
+            <section className={`mb-16 transition-all duration-500 ${activeSection === 3 ? 'focused-section' : ''}`} ref={itemsRef}>
+                <h3 className="section-title">02-3. SELECT ITEM</h3>
                 <div className="grid grid-2">
                     {masterData.items.map((item) => (
                         <div
                             key={item.name}
                             className={`tile ${order.item === item.name ? "active" : ""}`}
                             onClick={() => {
-                                // Reset color/size when item changes
                                 onUpdate({
                                     item: item.name,
                                     itemColor: "",
@@ -100,78 +199,85 @@ export default function Step2_DetailsSelection({
                             }}
                         >
                             <span className="text-sm font-bold">{item.name}</span>
-                            <span className="text-[10px] opacity-70">+¥{item.price.toLocaleString()}</span>
+                            <span className="text-[10px] mt-1 opacity-60">+¥{item.price.toLocaleString()}</span>
                             {masterData.items.length === 1 && <span className="badge">Auto-Selected</span>}
                         </div>
                     ))}
                 </div>
             </section>
 
-            <div className="grid grid-2 mb-8">
-                <section>
-                    <h3 className="section-title mb-2 text-xs font-bold text-sub">02-3. COLOR</h3>
-                    <div className="grid">
-                        {!order.item ? (
-                            <p className="text-[10px] text-sub italic">Select item first</p>
-                        ) : filteredColors.length > 0 ? (
-                            filteredColors.map((c) => (
-                                <div
-                                    key={c.name}
-                                    className={`tile ${order.itemColor === c.name ? "active" : ""}`}
-                                    onClick={() => onUpdate({ itemColor: c.name })}
-                                >
-                                    <span className="text-sm font-bold">{c.name}</span>
-                                    {filteredColors.length === 1 && <span className="badge">Auto-Selected</span>}
-                                </div>
-                            ))
-                        ) : (
-                            <p className="text-[10px] text-sub italic">No colors available</p>
-                        )}
-                    </div>
-                </section>
+            <section className={`mb-16 transition-all duration-500 ${activeSection === 4 ? 'focused-section' : ''}`} ref={colorRef}>
+                <h3 className="section-title">02-4. COLOR</h3>
+                <div className="grid grid-2">
+                    {!order.item ? (
+                        <div className="tile opacity-30 cursor-not-allowed border-none shadow-none">
+                            <span className="text-[10px] italic">Select item first</span>
+                        </div>
+                    ) : filteredColors.length > 0 ? (
+                        filteredColors.map((c) => (
+                            <div
+                                key={c.name}
+                                className={`tile ${order.itemColor === c.name ? "active" : ""}`}
+                                onClick={() => onUpdate({ itemColor: c.name })}
+                            >
+                                <span className="text-sm font-bold">{c.name}</span>
+                                {filteredColors.length === 1 && <span className="badge">Auto-Selected</span>}
+                            </div>
+                        ))
+                    ) : (
+                        <div className="tile opacity-30 cursor-not-allowed border-none shadow-none">
+                            <span className="text-[10px] italic">No colors</span>
+                        </div>
+                    )}
+                </div>
+            </section>
 
-                <section>
-                    <h3 className="section-title mb-2 text-xs font-bold text-sub">02-4. SIZE</h3>
-                    <div className="grid">
-                        {!order.item ? (
-                            <p className="text-[10px] text-sub italic">Select item first</p>
-                        ) : filteredSizes.length > 0 ? (
-                            filteredSizes.map((s) => (
-                                <div
-                                    key={s.name}
-                                    className={`tile ${order.itemSize === s.name ? "active" : ""}`}
-                                    onClick={() => onUpdate({ itemSize: s.name })}
-                                >
-                                    <span className="text-sm font-bold">{s.name}</span>
-                                    {filteredSizes.length === 1 && <span className="badge">Auto-Selected</span>}
-                                </div>
-                            ))
-                        ) : (
-                            <p className="text-[10px] text-sub italic">No sizes available</p>
-                        )}
-                    </div>
-                </section>
-            </div>
+            <section className={`mb-16 transition-all duration-500 ${activeSection === 5 ? 'focused-section' : ''}`} ref={sizeRef}>
+                <h3 className="section-title">02-5. SIZE</h3>
+                <div className="grid grid-2">
+                    {!order.item ? (
+                        <div className="tile opacity-30 cursor-not-allowed border-none shadow-none">
+                            <span className="text-[10px] italic">Select item first</span>
+                        </div>
+                    ) : filteredSizes.length > 0 ? (
+                        filteredSizes.map((s) => (
+                            <div
+                                key={s.name}
+                                className={`tile ${order.itemSize === s.name ? "active" : ""}`}
+                                onClick={() => onUpdate({ itemSize: s.name })}
+                            >
+                                <span className="text-sm font-bold">{s.name}</span>
+                                {filteredSizes.length === 1 && <span className="badge">Auto-Selected</span>}
+                            </div>
+                        ))
+                    ) : (
+                        <div className="tile opacity-30 cursor-not-allowed border-none shadow-none">
+                            <span className="text-[10px] italic">No sizes</span>
+                        </div>
+                    )}
+                </div>
+            </section>
 
-            <section className="mb-8">
-                <h3 className="section-title mb-2 text-xs font-bold text-sub">02-5. THREAD COLORS</h3>
+            <section className={`mb-16 transition-all duration-500 ${activeSection === 6 ? 'focused-section' : ''}`} ref={threadsRef}>
+                <h3 className="section-title">02-6. THREAD COLORS</h3>
                 {order.plan ? (
                     <ThreadSelector
-                        count={threadCount}
-                        values={[order.thread1, order.thread2, order.thread3]}
-                        onChange={handleThreadChange}
+                        limit={threadCount}
+                        selected={order.threads}
+                        onToggle={handleThreadToggle}
                     />
                 ) : (
-                    <p className="text-center text-sub italic">Please select a plan first.</p>
+                    <div className="thread-card text-center py-10">
+                        <p className="text-sm text-sub italic">Please select a plan first to choose threads.</p>
+                    </div>
                 )}
             </section>
 
-            <section>
-                <h3 className="section-title mb-2 text-xs font-bold text-sub">02-6. REMARKS (OPTIONAL)</h3>
+            <section ref={remarksRef}>
+                <h3 className="section-title">02-7. REMARKS (OPTIONAL)</h3>
                 <textarea
-                    className="w-full p-4 border rounded-xl outline-none focus:border-primary transition-colors text-sm"
-                    rows={3}
-                    placeholder="ご要望があればご記入ください"
+                    className="w-full min-h-[120px] resize-none text-sm"
+                    placeholder="ご要望や特記事項があればご記入ください"
                     value={order.notes}
                     onChange={(e) => onUpdate({ notes: e.target.value })}
                 />
